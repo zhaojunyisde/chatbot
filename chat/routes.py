@@ -6,6 +6,7 @@ from auth.dependencies import get_current_active_user
 from .models import ChatMessage, ChatMessageCreate, ChatHistoryResponse
 from .utils import generate_bot_response, save_chat_message, get_user_chat_history
 from .database import chat_history_db
+from .rate_limiter import rate_limiter
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -18,7 +19,14 @@ async def send_message(
     """
     Send a message to the chatbot and get a response.
     Both the user message and bot response are saved to chat history.
+
+    Rate Limits:
+    - Service-wide: 100 requests per minute
+    - Per user: 30 requests per minute
     """
+    # Check rate limits before processing
+    rate_limiter.check_rate_limit(current_user.username)
+
     # Save user message
     user_message = save_chat_message(
         username=current_user.username,
@@ -75,3 +83,12 @@ async def clear_chat_history(current_user: User = Depends(get_current_active_use
         "message": "No chat history found",
         "deleted_messages": 0
     }
+
+
+@router.get("/rate-limit")
+async def get_rate_limit_status(current_user: User = Depends(get_current_active_user)):
+    """
+    Get the current rate limit status for the authenticated user.
+    Shows both service-wide and per-user rate limit information.
+    """
+    return rate_limiter.get_rate_limit_status(current_user.username)
