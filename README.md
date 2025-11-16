@@ -7,6 +7,7 @@ A production-ready FastAPI microservice with JWT authentication and chat history
 - **FastAPI framework** for high-performance API endpoints
 - **JWT-based authentication** system with secure password hashing
 - **Chat history functionality** with user-to-bot conversations
+- **Rate limiting** to prevent abuse (100 req/min service-wide, 10 req/min per user)
 - **Modular architecture** with separate auth and chat modules
 - **In-memory storage** for users and chat history (easily replaceable with databases)
 - **Docker and Docker Compose** support for containerization
@@ -105,8 +106,9 @@ chatbot/
 - `GET /protected` - Example protected route
 
 **Chat:**
-- `POST /chat` - Send a message to the chatbot and get a response
+- `POST /chat` - Send a message to the chatbot and get a response (rate limited)
 - `GET /chat/history` - Retrieve chat history (supports `?limit=N` parameter)
+- `GET /chat/rate-limit` - Check current rate limit status
 - `DELETE /chat/history` - Clear all chat history for the current user
 
 ## API Documentation
@@ -218,6 +220,67 @@ curl -X DELETE "http://localhost:8000/chat/history" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
+### 7. Check Rate Limit Status
+
+```bash
+curl -X GET "http://localhost:8000/chat/rate-limit" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Response:
+```json
+{
+  "global": {
+    "current": 5,
+    "limit": 100,
+    "remaining": 95,
+    "window": "1 minute"
+  },
+  "user": {
+    "current": 5,
+    "limit": 10,
+    "remaining": 5,
+    "window": "1 minute"
+  }
+}
+```
+
+## Rate Limiting
+
+The chat API implements dual-layer rate limiting to ensure fair usage and prevent abuse:
+
+### Limits
+
+- **Service-wide**: 100 requests per minute across all users
+- **Per-user**: 10 requests per minute per user
+
+### How It Works
+
+- Rate limits are enforced on the `POST /chat` endpoint
+- Limits use a sliding window of 1 minute
+- When a limit is exceeded, you'll receive an HTTP 429 error
+- Old requests are automatically cleaned up after the time window
+
+### Rate Limit Response
+
+When you exceed your rate limit:
+
+```json
+{
+  "detail": {
+    "error": "User rate limit exceeded",
+    "message": "You have reached your limit of 10 requests per minute. Please try again later.",
+    "retry_after": 60,
+    "current_usage": 10,
+    "limit": 10
+  }
+}
+```
+
+### Checking Your Usage
+
+Use the `GET /chat/rate-limit` endpoint to check your current rate limit status at any time. This helps you monitor your usage and avoid hitting limits.
+
 ### Default Admin User
 
 For testing, a default admin user is available:
@@ -277,7 +340,7 @@ The bot response logic is located in `chat/utils.py` in the `generate_bot_respon
 2. **Update CORS settings** in `main.py` to restrict allowed origins (currently set to `["*"]`)
 3. **Replace in-memory databases** with real databases (PostgreSQL, MySQL, MongoDB, etc.)
 4. **Enable HTTPS** in production
-5. **Add rate limiting** to prevent abuse
+5. **Implement advanced rate limiting** (e.g., different tiers, dynamic limits)
 6. **Implement proper logging and monitoring**
 7. **Use environment variables** for all sensitive configuration
 
@@ -301,7 +364,7 @@ The bot response logic is located in `chat/utils.py` in the `generate_bot_respon
 - Configure CI/CD pipeline
 - Add comprehensive logging with structured logs
 - Implement monitoring and alerting
-- Add API rate limiting
+- Enhance rate limiting (Redis-based distributed rate limiting for multi-instance deployments)
 - Set up database migrations (Alembic)
 - Configure production WSGI server (Gunicorn)
 
