@@ -22,7 +22,7 @@ async def send_message(
 
     Rate Limits:
     - Service-wide: 100 requests per minute
-    - Per user: 30 requests per minute
+    - Per user: 10 requests per minute
     """
     # Check rate limits before processing
     rate_limiter.check_rate_limit(current_user.username)

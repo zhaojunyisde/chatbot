@@ -7,7 +7,7 @@ import threading
 
 # Rate limit configuration
 GLOBAL_LIMIT_PER_MINUTE = 100
-USER_LIMIT_PER_MINUTE = 30
+USER_LIMIT_PER_MINUTE = 10
 
 
 class RateLimiter:
